@@ -1,0 +1,158 @@
+{
+    "destinations": [
+        {
+            "match": "$.server.memberRole = PRIMARY",
+            "name": "Primary"
+        },
+        {
+            "match": "$.server.memberRole = READ_REPLICA AND $.server.tags.workload = 'backup'",
+            "name": "BackupRR"
+        },
+        {
+            "match": "$.server.memberRole = READ_REPLICA AND $.server.tags.workload = 'analytics'",
+            "name": "AnalyticsRR"
+        },
+        {
+            "match": "$.server.memberRole = READ_REPLICA AND $.server.tags.workload = 'reporting'",
+            "name": "ReportingRR"
+        },
+        {
+            "match": "$.server.memberRole = READ_REPLICA",
+            "name": "AnyRR"
+        },
+        {
+            "match": "$.server.memberRole = SECONDARY",
+            "name": "AnySecondary"
+        }
+    ],
+    "name": "OLTP_matters",
+    "routes": [
+        {
+            "connectionSharingAllowed": true,
+            "destinations": [
+                {
+                    "classes": [
+                        "Primary"
+                    ],
+                    "priority": 0,
+                    "strategy": "round-robin"
+                }
+            ],
+            "enabled": true,
+            "match": "$.session.targetPort = $.router.port.rw",
+            "name": "rw_primary"
+        },
+        {
+            "connectionSharingAllowed": true,
+            "destinations": [
+                {
+                    "classes": [
+                        "BackupRR"
+                    ],
+                    "priority": 0,
+                    "strategy": "round-robin"
+                },
+                {
+                    "classes": [
+                        "AnyRR"
+                    ],
+                    "priority": 1,
+                    "strategy": "round-robin"
+                },
+                {
+                    "classes": [
+                        "AnySecondary"
+                    ],
+                    "priority": 2,
+                    "strategy": "round-robin"
+                }
+            ],
+            "enabled": true,
+            "match": "$.session.targetPort = $.router.port.ro AND $.session.schema = 'backup'",
+            "name": "ro_backup"
+        },
+        {
+            "connectionSharingAllowed": true,
+            "destinations": [
+                {
+                    "classes": [
+                        "AnalyticsRR",
+                        "ReportingRR"
+                    ],
+                    "priority": 0,
+                    "strategy": "round-robin"
+                },
+                {
+                    "classes": [
+                        "AnyRR"
+                    ],
+                    "priority": 1,
+                    "strategy": "round-robin"
+                },
+                {
+                    "classes": [
+                        "AnySecondary"
+                    ],
+                    "priority": 2,
+                    "strategy": "round-robin"
+                }
+            ],
+            "enabled": true,
+            "match": "$.session.targetPort = $.router.port.ro AND ($.session.schema = 'analytics' OR $.session.schema = 'reporting') AND $.session.connectAttrs.degraded_ok = '1'",
+            "name": "ro_analytics_reporting_degraded"
+        },
+        {
+            "connectionSharingAllowed": true,
+            "destinations": [
+                {
+                    "classes": [
+                        "AnalyticsRR"
+                    ],
+                    "priority": 0,
+                    "strategy": "round-robin"
+                }
+            ],
+            "enabled": true,
+            "match": "$.session.targetPort = $.router.port.ro AND $.session.schema = 'analytics' AND $.session.connectAttrs.degraded_ok <> '1'",
+            "name": "ro_analytics_strict"
+        },
+        {
+            "connectionSharingAllowed": true,
+            "destinations": [
+                {
+                    "classes": [
+                        "ReportingRR"
+                    ],
+                    "priority": 0,
+                    "strategy": "round-robin"
+                }
+            ],
+            "enabled": true,
+            "match": "$.session.targetPort = $.router.port.ro AND $.session.schema = 'reporting' AND $.session.connectAttrs.degraded_ok <> '1'",
+            "name": "ro_reporting_strict"
+        },
+        {
+            "connectionSharingAllowed": true,
+            "destinations": [
+                {
+                    "classes": [
+                        "AnySecondary"
+                    ],
+                    "priority": 0,
+                    "strategy": "round-robin"
+                },
+                {
+                    "classes": [
+                        "AnyRR"
+                    ],
+                    "priority": 1,
+                    "strategy": "round-robin"
+                }
+            ],
+            "enabled": true,
+            "match": "$.session.targetPort = $.router.port.ro",
+            "name": "ro_default_oltp"
+        }
+    ],
+    "version": "1.1"
+}
